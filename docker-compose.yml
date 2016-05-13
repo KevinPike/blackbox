@@ -1,0 +1,119 @@
+version: "2"
+services:
+  # Logging
+  elasticsearch:
+    image: elasticsearch:latest
+    command: elasticsearch -Des.network.host=0.0.0.0
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+  logstash:
+    image: logstash:latest
+    command: logstash -f /etc/logstash/conf.d/logstash.conf
+    volumes:
+      - ./elk/logstash/config:/etc/logstash/conf.d
+    ports:
+      - "5000:5000"
+    depends_on:
+      - elasticsearch
+  kibana:
+    build: elk/kibana/
+    volumes:
+      - ./elk/kibana/config/:/opt/kibana/config/
+    ports:
+      - "5601:5601"
+    links:
+    - elasticsearch
+  # Monitoring
+  graphitestatsd:
+    image: hopsoft/graphite-statsd
+    expose:
+      - "80"
+      - "8125/udp"
+    ports:
+      - "8080:80"
+  nsqlookupd:
+    image: "nsqio/nsq:v0.3.5"
+    command: "/nsqlookupd"
+    expose:
+      - "4160"
+      - "4161"
+
+  nsqadmin:
+    image: nsqio/nsq:v0.3.5
+    command: "sh -c '/nsqadmin --lookupd-http-address=nsqlookupd:4161 --graphite-url=http://graphitestatsd --proxy-graphite=true'"
+    links:
+      - nsqlookupd
+      - nsqd
+      - graphitestatsd
+    ports:
+      - "4171:4171"
+
+  nsqd:
+    image: nsqio/nsq:v0.3.5
+    volumes:
+      - /data
+    command: "sh -c '/nsqd --data-path=/data --statsd-address=graphitestatsd:8125 --lookupd-tcp-address=nsqlookupd:4160 '"
+    links:
+      - nsqlookupd
+      - graphitestatsd
+    ports:
+      - "4150:4150"
+      - "4151:4151"
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    links:
+      - graphitestatsd
+  # Application
+  consul1:
+    image: "consul:latest"
+    container_name: "consul1"
+    hostname: "consul1"
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:53"
+    command: "agent -server -bootstrap-expect 3 -ui-dir /ui -config-dir=/etc/consul.d"
+    volumes:
+      - "./consul/conf:/etc/consul.d"
+    links:
+      - "graphitestatsd:statsd"
+    depends_on:
+      - "graphitestatsd"
+      - logstash
+  consul2:
+    image: "consul:latest"
+    container_name: "consul2"
+    hostname: "consul2"
+    expose:
+      - "8400"
+      - "8500"
+      - "8600"
+    command: "agent -server -join consul1 -config-dir=/etc/consul.d"
+    volumes:
+      - "./consul/conf:/etc/consul.d"
+    links:
+      - "graphitestatsd:statsd"
+    depends_on:
+      - consul1
+      - "graphitestatsd"
+      - logstash
+  consul3:
+    image: "consul:latest"
+    container_name: "consul3"
+    hostname: "consul3"
+    expose:
+      - "8400"
+      - "8500"
+      - "8600"
+    command: "agent -server -join consul1 -config-dir=/etc/consul.d"
+    volumes:
+      - "./consul/conf:/etc/consul.d"
+    links:
+      - "graphitestatsd:statsd"
+    depends_on:
+      - consul1
+      - "graphitestatsd"
+      - logstash

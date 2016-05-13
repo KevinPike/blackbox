@@ -1,0 +1,5 @@
+{
+    "telemetry": {
+        "statsd_address": "statsd:8125"
+    }
+}

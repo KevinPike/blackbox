@@ -1,0 +1,12 @@
+filebeat:
+  # List of prospectors to fetch data.
+  prospectors:
+    -
+      paths:
+        - /var/lib/docker/containers/*/*.log
+      input_type: log
+      ignore_older: 5m
+  registry_file: /var/lib/filebeat/registry
+    output:
+    elasticsearch:
+        hosts: ["elasticsearch:9200"]

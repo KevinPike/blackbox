@@ -1,0 +1,60 @@
+version: "2"
+services:
+  consul1:
+    image: "consul:latest"
+    container_name: "consul1"
+    hostname: "consul1"
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:53"
+    command: "-server -bootstrap-expect 3 -ui-dir /ui -config-dir=/etc/consul.d"
+    volumes:
+      - "./config.json:/etc/consul.d/config.json"
+    external_links:
+      - "statsd:statsd"
+      - "logstash:logstash"
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://logstash:5000"
+  consul2:
+    image: "consul:latest"
+    container_name: "consul2"
+    hostname: "consul2"
+    expose:
+      - "8400"
+      - "8500"
+      - "8600"
+    command: "-server -join consul1 -config-dir=/etc/consul.d"
+    volumes:
+      - "./config.json:/etc/consul.d/config.json"
+    external_links:
+      - "statsd:statsd"
+      - "elk_logstash_1:logstash"
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://logstash:5000"
+    depends_on:
+      - consul1
+  consul3:
+    image: "consul:latest"
+    container_name: "consul3"
+    hostname: "consul3"
+    expose:
+      - "8400"
+      - "8500"
+      - "8600"
+    command: "-server -join consul1 -config-dir=/etc/consul.d"
+    volumes:
+      - "./config.json:/etc/consul.d/config.json"
+    external_links:
+      - "statsd:statsd"
+      - "logstash:logstash"
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://logstash:5000"
+    depends_on:
+      - consul1
